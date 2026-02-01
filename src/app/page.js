@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 
 const BG_IMG = "/image/shot-ostrich-fern-s-blossomed-plants.jpg";
+const LEAF_IMG = "/image/folhas.jpg.png";
 const PRODUCTS = [
   {
     name: "Orquídea Phalaenopsis Premium",
@@ -52,6 +53,7 @@ function usePrefersReducedMotion() {
 }
 
 export default function Home() {
+  const [isMobile, setIsMobile] = useState(false);
   // Animação About com Intersection Observer
   const [aboutTextVisible, setAboutTextVisible] = useState(false);
   const [aboutImgVisible, setAboutImgVisible] = useState(false);
@@ -67,24 +69,47 @@ export default function Home() {
       ([entry]) => setAboutImgVisible(entry.isIntersecting),
       { threshold: 0.3 },
     );
-    if (aboutTextRef.current) observerText.observe(aboutTextRef.current);
-    if (aboutImgRef.current) observerImg.observe(aboutImgRef.current);
+    const textEl = aboutTextRef.current;
+    const imgEl = aboutImgRef.current;
+    if (textEl) observerText.observe(textEl);
+    if (imgEl) observerImg.observe(imgEl);
     return () => {
-      if (aboutTextRef.current) observerText.unobserve(aboutTextRef.current);
-      if (aboutImgRef.current) observerImg.unobserve(aboutImgRef.current);
+      if (textEl) observerText.unobserve(textEl);
+      if (imgEl) observerImg.unobserve(imgEl);
+      observerText.disconnect();
+      observerImg.disconnect();
     };
   }, []);
   const prefersReducedMotion = usePrefersReducedMotion();
   const [bgPos, setBgPos] = useState(0);
+  const [leafT, setLeafT] = useState(0);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const update = () => setIsMobile(window.innerWidth < 768);
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, []);
   // Parallax global: move o fundo em todas as seções (exceto header/footer)
   useEffect(() => {
     if (prefersReducedMotion) return;
+    let ticking = false;
     const onScroll = () => {
-      setBgPos(window.scrollY * 0.4); // ajuste a velocidade conforme necessário
+      if (ticking) return;
+      ticking = true;
+      window.requestAnimationFrame(() => {
+        const y = window.scrollY;
+        setBgPos(y * 0.4); // ajuste a velocidade conforme necessário
+        // Folhas desaparecem gradativamente até a seção Showcase (~2.5x a altura da viewport)
+        const distance = window.innerHeight * 2.5;
+        setLeafT(Math.min(1, y / distance));
+        ticking = false;
+      });
     };
     window.addEventListener("scroll", onScroll, { passive: true });
+    onScroll();
     return () => window.removeEventListener("scroll", onScroll);
-  }, [prefersReducedMotion]);
+  }, [prefersReducedMotion, isMobile]);
 
   // Hero e Contact animados com Intersection Observer
   const [heroVisible, setHeroVisible] = useState(false);
@@ -99,9 +124,11 @@ export default function Home() {
       ([entry]) => setHeroVisible(entry.isIntersecting),
       { threshold: 0.3 },
     );
-    if (heroRef.current) observer.observe(heroRef.current);
+    const heroEl = heroRef.current;
+    if (heroEl) observer.observe(heroEl);
     return () => {
-      if (heroRef.current) observer.unobserve(heroRef.current);
+      if (heroEl) observer.unobserve(heroEl);
+      observer.disconnect();
     };
   }, [prefersReducedMotion]);
 
@@ -114,9 +141,11 @@ export default function Home() {
       ([entry]) => setContactVisible(entry.isIntersecting),
       { threshold: 0.2 },
     );
-    if (contactRef.current) observer.observe(contactRef.current);
+    const contactEl = contactRef.current;
+    if (contactEl) observer.observe(contactEl);
     return () => {
-      if (contactRef.current) observer.unobserve(contactRef.current);
+      if (contactEl) observer.unobserve(contactEl);
+      observer.disconnect();
     };
   }, []);
 
@@ -130,7 +159,8 @@ export default function Home() {
     }
     if (typeof window === "undefined") return;
     const observers = [];
-    showcaseRefs.current.forEach((ref, i) => {
+    const elements = showcaseRefs.current.slice();
+    elements.forEach((ref, i) => {
       if (!ref) return;
       const obs = new window.IntersectionObserver(
         ([entry]) => {
@@ -147,7 +177,9 @@ export default function Home() {
     });
     return () => {
       observers.forEach((obs, i) => {
-        if (showcaseRefs.current[i]) obs.unobserve(showcaseRefs.current[i]);
+        const el = elements[i];
+        if (el) obs.unobserve(el);
+        obs.disconnect();
       });
     };
   }, [prefersReducedMotion]);
@@ -163,9 +195,14 @@ export default function Home() {
       <header className="fixed top-0 left-0 w-full z-30 bg-zinc-700/20 backdrop-blur-sm border-b border-zinc-200 dark:border-zinc-800 shadow-sm">
         <div className="max-w-6xl mx-auto flex items-center justify-between px-6 py-3">
           <div className="flex items-center gap-2">
-            <span className="text-2xl font-bold tracking-tight text-green-700">
-              BioAmbiente
-            </span>
+            <Image
+              src="/image/BIO-A.png"
+              alt="Logo BioAmbiente"
+              width={160}
+              height={40}
+              priority
+              className="h-10 w-auto object-contain drop-shadow"
+            />
           </div>
           <nav className="hidden md:flex gap-8 text-base font-medium">
             <a
@@ -220,6 +257,46 @@ export default function Home() {
         }}
       />
 
+      {/* Folhas decorativas que se movem e desaparecem gradativamente com o scroll */}
+      <Image
+        src="/image/folhas-01.png"
+        alt=""
+        aria-hidden="true"
+        width={1400}
+        height={1400}
+        className={`pointer-events-none select-none fixed left-1/2 z-0 ${isMobile ? "w-[180vw] max-w-none" : "w-[110vw] sm:w-[86vw] md:w-[680px] lg:w-[920px]"}`}
+        style={{
+          top: "45vh",
+          transform: prefersReducedMotion
+            ? "translate(calc(-100% - 1.5rem), -50%)"
+            : `translate(calc(-100% - 1.5rem + ${-leafT * (isMobile ? 320 : 800)}px), -50%) rotate(${-10 - leafT * 18}deg)`,
+          opacity: prefersReducedMotion
+            ? 0.95
+            : Math.max(0, 0.95 - leafT * 1.1),
+          filter: "drop-shadow(0 22px 38px rgba(0,0,0,0.38))",
+          transition: prefersReducedMotion ? "opacity 0.3s" : "none",
+        }}
+      />
+      <Image
+        src="/image/folhas-02.png"
+        alt=""
+        aria-hidden="true"
+        width={1400}
+        height={1400}
+        className={`pointer-events-none select-none fixed right-1/2 z-0 ${isMobile ? "w-[180vw] max-w-none" : "w-[110vw] sm:w-[86vw] md:w-[680px] lg:w-[920px]"}`}
+        style={{
+          top: "45vh",
+          transform: prefersReducedMotion
+            ? "translate(calc(100% + 1.5rem), -50%) scaleX(-1)"
+            : `translate(calc(100% + 1.5rem + ${leafT * (isMobile ? 320 : 800)}px), -50%) rotate(${10 + leafT * 18}deg) scaleX(-1)`,
+          opacity: prefersReducedMotion
+            ? 0.95
+            : Math.max(0, 0.95 - leafT * 1.1),
+          filter: "drop-shadow(0 22px 38px rgba(0,0,0,0.38))",
+          transition: prefersReducedMotion ? "opacity 0.3s" : "none",
+        }}
+      />
+
       {/* Conteúdo principal (Hero, About, Showcase, Contact) */}
       <main className="pt-0">
         {/* Hero Section */}
@@ -232,13 +309,13 @@ export default function Home() {
             className="relative z-10 flex flex-col items-center text-center max-w-2xl px-6"
           >
             <h1
-              className={`text-4xl md:text-5xl font-bold leading-tight text-white drop-shadow-lg mb-4 transition-all duration-[1600ms] ease-out ${heroVisible ? "opacity-100 scale-100 translate-y-0" : "opacity-0 scale-90 translate-y-8"}`}
+              className={`relative z-10 text-4xl md:text-5xl font-bold leading-tight text-white drop-shadow-lg mb-4 transition-all duration-[1600ms] ease-out ${heroVisible ? "opacity-100 scale-100 translate-y-0" : "opacity-0 scale-90 translate-y-8"}`}
             >
               A sofisticação da natureza integrada ao seu ambiente de alto
               padrão.
             </h1>
             <p
-              className={`text-lg md:text-xl text-zinc-100/90 mb-8 transition-all duration-[1200ms] delay-200 ease-out ${heroVisible ? "opacity-100 scale-100 translate-y-0" : "opacity-0 scale-90 translate-y-8"}`}
+              className={`relative z-10 text-lg md:text-xl text-zinc-100/90 mb-8 transition-all duration-[1200ms] delay-200 ease-out ${heroVisible ? "opacity-100 scale-100 translate-y-0" : "opacity-0 scale-90 translate-y-8"}`}
             >
               Mais do que plantas, entregamos elementos de design que comunicam
               autoridade, bem-estar e sofisticação para residências e
@@ -246,7 +323,7 @@ export default function Home() {
             </p>
             <a
               href="#curadoria"
-              className={`px-7 py-3 rounded-full bg-green-700 text-white font-semibold shadow-lg hover:bg-green-800 transition-colors text-lg transition-all duration-[1000ms] ${heroVisible ? "opacity-100 scale-100" : "opacity-0 scale-90"}`}
+              className={`relative z-10 px-7 py-3 rounded-full bg-green-700 text-white font-semibold shadow-lg hover:bg-green-800 transition-colors text-lg transition-all duration-[1000ms] ${heroVisible ? "opacity-100 scale-100" : "opacity-0 scale-90"}`}
             >
               Conheça Nossa Curadoria
             </a>
@@ -277,9 +354,11 @@ export default function Home() {
                   }}
                   ref={aboutImgRef}
                 >
-                  <img
+                  <Image
                     src="/plants/about.jpg"
                     alt="Plantas em ambiente sofisticado"
+                    width={420}
+                    height={420}
                     className="rounded-3xl object-cover w-full h-auto aspect-square md:w-[420px] md:h-[420px] shadow-2xl"
                     style={{
                       objectPosition: "center",
